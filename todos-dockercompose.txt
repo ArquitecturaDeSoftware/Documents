@@ -28,51 +28,53 @@ services:
 -------------------------------------------------statistics
 
 
-version: "2"
-
+version: '2'
 services:
   statistic:
     image: jscastel97/statistics
-    container_name: statistic
     ports:
-    - 8800:8081
+    - 8800:8081/tcp
   mongodb:
-    command: mongod --smallfiles --logpath=/dev/null
-    container_name: mongodb
-    environment:
-    - MONGO_DATA_DIR=/data/db
-    - MONGO_LOG_DIR=/dev/null
     image: mongo:latest
+    environment:
+      MONGO_DATA_DIR: /data/db
+      MONGO_LOG_DIR: /dev/null
     ports:
-    - 27017:27017
+    - 27018:27017/tcp
+    command:
+    - mongod
+    - --smallfiles
+    - --logpath=/dev/null
 
 
 -------------------------------------------------comments
 
 
 version: '2'
-
 services:
-  mongodb:
-    container_name: mongo
-    environment:
-      - MONGO_DATA_DIR=/data/db
-      - MONGO_LOG_DIR=/dev/null
-    image: mongo:latest
-    ports:
-      - "27017:27017"
   comment:
     image: jscastel97/comments
-    container_name: comments
-    command: python manage.py runserver 0.0.0.0:8000
+    entrypoint:
+    - /entrypoint.sh
     ports:
-      - "8000:8000"
-    depends_on:
-      - mongodb
-    entrypoint: /entrypoint.sh
+    - 8000:8000/tcp
+    command:
+    - python
+    - manage.py
+    - runserver
+    - 0.0.0.0:8000
+  mongodb:
+    image: mongo:latest
+    environment:
+      MONGO_DATA_DIR: /data/db
+      MONGO_LOG_DIR: /dev/null
+    ports:
+    - 27019:27017/tcp
+
 
 
 -------------------------------------------------tickets
+
 
 version: '2'
 services:
@@ -94,7 +96,9 @@ services:
     environment:
       MYSQL_URL: jdbc:mysql://tickets-db:3306/restapi
 
+
 -------------------------------------------------lunchrooms
+
 
 version: '2'
 services:
@@ -118,41 +122,43 @@ services:
     command:
     - bin/lunchrooms-ms
 
+
 -------------------------------------------------api gateway y proxy inverso
+
 
 version: '2'
 services:
   academy-proxy:
-    image: jscastel97/proxy_inverse  
-    depends_on:
-      - api-gateway
+    image: jscastel97/proxy_inverse
     ports:
-      - "80:80"
+    - 80:80/tcp
   api-gateway:
     image: jscastel97/api
     environment:
-      PORT: '5000'
-      SHOW_URLS: 'true'
-      STATISTICS_URL: '35.233.203.49'
-      STATISTICS_PORT: '8800'
-      STATISTICS_ENTRY: 'statistics'
-      LUNCHROOM_URL: '35.231.8.63'
+      LUNCHROOM_ENTRY: lunchrooms
       LUNCHROOM_PORT: '9000'
-      LUNCHROOM_ENTRY: 'lunchrooms'
-      MENU_URL: '104.196.169.158'
+      LUNCHROOM_URL: 34.73.155.196
+      MENU_ENTRY: api/menus
       MENU_PORT: '3000'
-      MENU_ENTRY: 'api/menus'
-      POST_URL: '35.233.133.15'
+      MENU_URL: 34.73.155.196
+      PORT: '5000'
+      POST_ENTRY: posts
       POST_PORT: '8000'
-      POST_ENTRY: 'posts'
-      TICKETS_URL: '35.243.169.156'
+      POST_URL: 34.73.155.196
+      SHOW_URLS: 'true'
+      STATISTICS_ENTRY: statistics
+      STATISTICS_PORT: '8800'
+      STATISTICS_URL: 34.73.155.196
+      TICKETS_ENTRY: tickets
       TICKETS_PORT: '4200'
-      TICKETS_ENTRY: 'tickets'
-      USERS_URL: '35.227.86.231'
-      USERS_PORT: '4200'
-      USERS_ENTRY: 'users'
+      TICKETS_URL: 34.73.155.196
+      USERS_ENTRY: users
+      USERS_PORT: '3001'
+      USERS_URL: 34.73.155.196
+
 
 --------------------------------------------------------Users_GO
+
 
 version: '2'
 services:
@@ -172,9 +178,11 @@ services:
     - --smallfiles
     - --logpath=/dev/null
 
+
 -----------------------------------------------------Users_java
 
-ersion: '2'
+
+Version: '2'
 services:
   users-db:
     image: mysql:5.7
@@ -194,25 +202,77 @@ services:
     environment:
       MYSQL_URL: jdbc:mysql://users-db:3306/restapi
 
+
 -----------------------------------------------------Users_node
 
+
 version: '2'
-services: 
+services:
+  mongodb:
+    image: mongo:latest
+    environment:
+      MONGO_DATA_DIR: /data/db
+      MONGO_LOG_DIR: /dev/null
+    ports:
+    - 27020:27017/tcp
+    command:
+    - mongod
+    - --smallfiles
+    - --logpath=/dev/null
   users:
     image: jscastel97/users_node
-    ports:
-    - 3000:3000
     environment:
+      PORT: '3001'
       jwtPrivateKey: SecureApp
-      PORT: 3000
-    depends_on:
-      - mongodb
-  mongodb:
-    command: mongod --smallfiles --logpath=/dev/null
-    container_name: mongodb
-    environment:
-    - MONGO_DATA_DIR=/data/db
-    - MONGO_LOG_DIR=/dev/null
-    image: mongo:latest
     ports:
-    - 27017:27017
+    - 3001:3001/tcp
+    - 8001:8001/tcp
+
+
+------------------------------------------------------LDAP
+
+
+version: '2'
+services:
+  turnapp-ldap:
+    image: osixia/openldap:1.1.8
+    hostname: arqsoft.org
+    environment:
+      COMPOSE_HTTP_TIMEOUT: '200'
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_BACKEND: hdb
+      LDAP_BASE_DN: ''
+      LDAP_CONFIG_PASSWORD: config
+      LDAP_DOMAIN: arqsoft.unal.edu.co
+      LDAP_LOG_LEVEL: '256'
+      LDAP_ORGANISATION: Turnapp
+      LDAP_READONLY_USER: 'false'
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: 'true'
+      LDAP_REPLICATION: 'false'
+      LDAP_SSL_HELPER_PREFIX: ldap
+      LDAP_TLS: 'true'
+      LDAP_TLS_CA_CRT_FILENAME: ca.crt
+      LDAP_TLS_CIPHER_SUITE: SECURE256:-VERS-SSL3.0
+      LDAP_TLS_CRT_FILENAME: ldap.crt
+      LDAP_TLS_ENFORCE: 'false'
+      LDAP_TLS_KEY_FILENAME: ldap.key
+      LDAP_TLS_PROTOCOL_MIN: '3.1'
+      LDAP_TLS_VERIFY_CLIENT: demand
+    stdin_open: true
+    volumes:
+    - /container/service/slapd/assets/certs/
+    - /etc/ldap/slapd.d
+    - /var/lib/ldap
+    tty: true
+    ports:
+    - 389:389/tcp
+    - 636:636/tcp
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    environment:
+      PHPLDAPADMIN_HTTPS: 'false'
+      PHPLDAPADMIN_LDAP_HOSTS: turnapp-ldap
+    links:
+    - turnapp-ldap:turnapp-ldap
+    ports:
+    - 8085:80/tcp
